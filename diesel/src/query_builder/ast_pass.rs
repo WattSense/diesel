@@ -1,7 +1,7 @@
 use std::fmt;
 
 use crate::backend::Backend;
-use crate::query_builder::{BindCollector, QueryBuilder};
+use crate::query_builder::{BindCollector, MoveableBindCollector, QueryBuilder};
 use crate::result::QueryResult;
 use crate::serialize::ToSql;
 use crate::sql_types::HasSqlType;
@@ -247,6 +247,33 @@ where
             AstPassInternals::ToSql(ref mut out, _) => {
                 out.push_bind_param_value_only();
             }
+            _ => {}
+        }
+        Ok(())
+    }
+
+    /// Push bind collector values from its data onto the query
+    ///
+    /// This method works with [MoveableBindCollector] data [MoveableBindCollector::BindData]
+    /// and is used with already collected query meaning its SQL is already built and its
+    /// bind data already collected.
+    #[diesel_derives::__diesel_public_if(
+        feature = "i-implement-a-third-party-backend-and-opt-into-breaking-changes"
+    )]
+    pub(crate) fn push_bind_collector_data<MD>(
+        &mut self,
+        bind_collector_data: &MD,
+    ) -> QueryResult<()>
+    where
+        DB: Backend,
+        for<'bc> DB::BindCollector<'bc>: MoveableBindCollector<DB, BindData = MD>,
+    {
+        match self.internals {
+            AstPassInternals::CollectBinds {
+                ref mut collector,
+                metadata_lookup: _,
+            } => collector.fill_bind_data(bind_collector_data),
+            // TODO MOMO: what to do with other cases? coupling with CollectedQuery is high
             _ => {}
         }
         Ok(())

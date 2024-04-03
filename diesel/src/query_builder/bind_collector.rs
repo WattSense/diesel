@@ -46,6 +46,23 @@ pub trait BindCollector<'a, DB: TypeMetadata>: Sized {
     }
 }
 
+/// Bind data from a BindCollector, that can be moved across threads
+pub trait MoveableBindData: Send + 'static {}
+
+/// A movable version of the bind collector which allows it to be extracted, moved and refilled.
+///
+/// This is mostly useful in async context where bind data needs to be moved across threads.
+pub trait MoveableBindCollector<DB: TypeMetadata> {
+    /// The movable bind data of this bind collector
+    type BindData: MoveableBindData;
+
+    /// Builds a movable version of the bind collector
+    fn moveable(&self) -> Self::BindData;
+
+    /// Refill the bind collector with its bind data
+    fn fill_bind_data(&mut self, from: &Self::BindData);
+}
+
 #[derive(Debug)]
 /// A bind collector used by backends which transmit bind parameters as an
 /// opaque blob of bytes.
@@ -122,6 +139,31 @@ where
         self.metadata.push(metadata);
         self.binds.push(None);
         Ok(())
+    }
+}
+
+impl<DB: Backend + TypeMetadata + 'static> MoveableBindData for RawBytesBindCollector<DB> where
+    <DB as TypeMetadata>::TypeMetadata: Send
+{
+}
+
+impl<DB> MoveableBindCollector<DB> for RawBytesBindCollector<DB>
+where
+    for<'a> DB: Backend<BindCollector<'a> = Self> + TypeMetadata + 'static,
+    <DB as TypeMetadata>::TypeMetadata: Clone + Send,
+{
+    type BindData = Self;
+
+    fn moveable(&self) -> Self::BindData {
+        RawBytesBindCollector {
+            binds: self.binds.clone(),
+            metadata: self.metadata.clone(),
+        }
+    }
+
+    fn fill_bind_data(&mut self, from: &Self::BindData) {
+        self.binds = from.binds.clone();
+        self.metadata = from.metadata.clone();
     }
 }
 
