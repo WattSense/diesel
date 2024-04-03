@@ -148,6 +148,15 @@ where
     }
 }
 
+/// A row that can be turned into an owned version
+pub trait IntoOwnedRow<'a, DB: Backend> {
+    /// The owned version of the row
+    type OwnedRow: Row<'a, DB> + Send + 'static;
+
+    /// Turn the row into its owned version
+    fn into_owned(self) -> Self::OwnedRow;
+}
+
 // These traits are not part of the public API
 // because:
 // * we want to control who can implement `Row` (for `RowSealed`)
