@@ -99,6 +99,9 @@ impl IntoOwnedRow<'_, Pg> for PgRow {
 
     fn into_owned(self) -> Self::OwnedRow {
         // retrieving the inner value should be safe since we have ownership
+        // MOMO FIXME, this is actually wrong since multiple PgRow will point to the same PgResult
+        // which is inside the Rc
+        // Figure out how to have self-contained PgResult or cloned version
         OwnedPgRow::new(
             Rc::into_inner(self.db_result).expect("PgRow must have single ownership"),
             self.row_idx,
