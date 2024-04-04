@@ -24,6 +24,8 @@ pub struct PgResult {
     column_name_map: OnceCell<Vec<Option<*const str>>>,
 }
 
+unsafe impl Send for PgResult {}
+
 impl PgResult {
     #[allow(clippy::new_ret_no_self)]
     pub(super) fn new(internal_result: RawResult, conn: &RawConnection) -> QueryResult<Self> {

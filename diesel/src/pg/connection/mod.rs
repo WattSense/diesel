@@ -1,4 +1,5 @@
 pub(crate) mod cursor;
+mod owned_row;
 mod raw;
 mod result;
 mod row;
@@ -21,6 +22,7 @@ use crate::query_builder::bind_collector::RawBytesBindCollector;
 use crate::query_builder::*;
 use crate::result::ConnectionError::CouldntSetupConfiguration;
 use crate::result::*;
+use crate::sql_types::TypeMetadata;
 use crate::RunQueryDsl;
 use std::ffi::CString;
 use std::fmt::Debug;
@@ -258,6 +260,12 @@ where
             )?;
             Self::get_cursor(conn, result, source)
         })
+    }
+}
+
+impl WithMetadataLookup for PgConnection {
+    fn metadata_lookup(&mut self) -> &mut <Pg as TypeMetadata>::MetadataLookup {
+        self
     }
 }
 

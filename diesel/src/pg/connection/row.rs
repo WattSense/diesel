@@ -1,3 +1,4 @@
+use super::owned_row::OwnedPgRow;
 use super::result::PgResult;
 use crate::backend::Backend;
 use crate::pg::value::TypeOidLookup;
@@ -34,11 +35,7 @@ impl<'a> Row<'a, Pg> for PgRow {
         Self: RowIndex<I>,
     {
         let idx = self.idx(idx)?;
-        Some(PgField {
-            db_result: &self.db_result,
-            row_idx: self.row_idx,
-            col_idx: idx,
-        })
+        Some(PgField::new(&self.db_result, self.row_idx, idx))
     }
 
     fn partial_row(&self, range: std::ops::Range<usize>) -> PartialRow<'_, Self::InnerPartialRow> {
@@ -69,6 +66,16 @@ pub struct PgField<'a> {
     col_idx: usize,
 }
 
+impl<'a> PgField<'a> {
+    pub(super) fn new(db_result: &'a PgResult, row_idx: usize, col_idx: usize) -> Self {
+        PgField {
+            db_result,
+            row_idx,
+            col_idx,
+        }
+    }
+}
+
 impl<'a> Field<'a, Pg> for PgField<'a> {
     fn field_name(&self) -> Option<&str> {
         self.db_result.column_name(self.col_idx)
@@ -84,5 +91,17 @@ impl<'a> Field<'a, Pg> for PgField<'a> {
 impl<'a> TypeOidLookup for PgField<'a> {
     fn lookup(&self) -> std::num::NonZeroU32 {
         self.db_result.column_type(self.col_idx)
+    }
+}
+
+impl IntoOwnedRow<'_, Pg> for PgRow {
+    type OwnedRow = OwnedPgRow;
+
+    fn into_owned(self) -> Self::OwnedRow {
+        // retrieving the inner value should be safe since we have ownership
+        OwnedPgRow::new(
+            Rc::into_inner(self.db_result).expect("PgRow must have single ownership"),
+            self.row_idx,
+        )
     }
 }
