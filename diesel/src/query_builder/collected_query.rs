@@ -1,7 +1,8 @@
 use super::{AstPass, MoveableBindCollector, Query, QueryFragment, QueryId};
 use crate::backend::{Backend, DieselReserveSpecialization};
 use crate::result::QueryResult;
-use crate::sql_types::Untyped;
+use crate::sql_types::{HasSqlType, Untyped};
+use std::marker::PhantomData;
 
 #[derive(Debug)]
 #[must_use = "Queries are only executed when calling `load`, `get_result` or similar."]
@@ -9,26 +10,28 @@ use crate::sql_types::Untyped;
 #[diesel_derives::__diesel_public_if(
     feature = "i-implement-a-third-party-backend-and-opt-into-breaking-changes"
 )]
-pub struct CollectedQuery<T> {
+pub struct CollectedQuery<T, ST> {
     sql: String,
     safe_to_cache_prepared: bool,
     bind_data: T,
+    sql_type: PhantomData<ST>,
 }
 
-impl<T> CollectedQuery<T> {
+impl<T, ST> CollectedQuery<T, ST> {
     /// Builds a [CollectedQuery] with movable bind data
     pub fn new(sql: String, safe_to_cache_prepared: bool, bind_data: T) -> Self {
         Self {
             sql,
             safe_to_cache_prepared,
             bind_data,
+            sql_type: PhantomData,
         }
     }
 }
 
-impl<DB, T> QueryFragment<DB> for CollectedQuery<T>
+impl<DB, T, ST> QueryFragment<DB> for CollectedQuery<T, ST>
 where
-    DB: Backend + DieselReserveSpecialization,
+    DB: Backend + DieselReserveSpecialization + HasSqlType<ST>,
     for<'a> <DB as Backend>::BindCollector<'a>: MoveableBindCollector<DB, BindData = T>,
 {
     fn walk_ast<'b>(&'b self, mut pass: AstPass<'_, 'b, DB>) -> QueryResult<()> {
@@ -40,12 +43,12 @@ where
     }
 }
 
-impl<T> QueryId for CollectedQuery<T> {
+impl<T, ST> QueryId for CollectedQuery<T, ST> {
     type QueryId = ();
 
     const HAS_STATIC_QUERY_ID: bool = false;
 }
 
-impl<T> Query for CollectedQuery<T> {
-    type SqlType = Untyped; // FIXME set proper type of underlying original query
+impl<T, ST> Query for CollectedQuery<T, ST> {
+    type SqlType = ST;
 }
