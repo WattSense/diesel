@@ -10,7 +10,6 @@ repository = "https://github.com/diesel-rs/diesel"
 keywords = ["orm", "database", "sql"]
 categories = ["database"]
 edition = "2021"
-rust-version.workspace = true
 include = [
     "src/**/*.rs",
     "tests/**/*.rs",
