@@ -100,8 +100,12 @@ impl<'stmt, 'query> Iterator for StatementIterator<'stmt, 'query> {
                     // This is safe as we pass `first_step = true` to reset the cached column names
                     stmt.step(true)
                 };
+                println!("MO {step:?}");
                 match step {
-                    Err(e) => Some(Err(e)),
+                    Err(e) => {
+                        println!("MO err {e:?}");
+                        Some(Err(e))
+                    }
                     Ok(false) => None,
                     Ok(true) => {
                         let field_count = stmt.column_count() as usize;
